@@ -1,126 +1,74 @@
-#ifndef STRING_CALCULATOR_H
-#define STRING_CALCULATOR_H
+#include <iostream>
+#include <string>
+#include <sstream>
+#include <vector>
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-// Function to parse a number from a token
-static int parseNumber(const char* token) {
-    return atoi(token);
+// Function to check if a string is empty
+bool isEmptyString(const std::string& value) {
+    return value.empty();
 }
 
-// Function to check if a number should be ignored
-static int shouldIgnore(int num) {
-    return num > 1000;
-}
-
-// Function to extract the delimiter from the input
-static char* getDelimiter(char** input) {
-    if (strncmp(*input, "//", 2) == 0) {
-        char* end = strchr(*input + 2, '\n');
-        if (end) {
-            *end = '\0';
-            return strndup(*input + 2, end - (*input + 2));
-        }
+// Function to convert string to integer and return the value if less than 1000
+int lessThanThousand(const std::string& num) {
+    int input = std::stoi(num); // Convert string to integer
+    if (input < 1000) {
+        return input;
     }
-    return strdup(","); // Default delimiter
+    return 0;
 }
 
-// Function to handle a single token and update negatives
-static int handleToken(const char* token, char* negatives) {
-    int num = parseNumber(token);
-    if (num < 0) {
-        strcat(negatives, token);
-        strcat(negatives, ",");
+// Function to split a string by a given delimiter
+std::vector<std::string> split(const std::string& str, const std::string& delimiter) {
+    std::vector<std::string> tokens;
+    std::string s = str;
+    size_t pos = 0;
+    while ((pos = s.find(delimiter)) != std::string::npos) {
+        tokens.push_back(s.substr(0, pos));
+        s.erase(0, pos + delimiter.length());
     }
-    return num;
+    tokens.push_back(s);
+    return tokens;
 }
 
-// Function to sum numbers and accumulate negatives
-static int sumNumbers(char* str, const char* delimiter, char* negatives) {
+// Function to calculate the sum of numbers in the input string with the given delimiter
+int calculateSum(const std::string& input, const std::string& delimiter) {
     int sum = 0;
-    char* token = strtok(str, delimiter);
-
-    while (token) {
-        int num = handleToken(token, negatives);
-        if (!shouldIgnore(num)) {
-            sum += num;
-        }
-        token = strtok(NULL, delimiter);
+    std::vector<std::string> tokens = split(input, delimiter); // Split input string
+    for (const auto& token : tokens) {
+        sum += lessThanThousand(token); // Add valid numbers less than 1000 to sum
     }
     return sum;
 }
 
-// Function to process input lines and calculate the total sum
-static int processInput(char* str, const char* delimiter, char* negatives) {
-    int sum = 0;
-    char* line = strtok(str, "\n");
-
-    while (line) {
-        sum += sumNumbers(line, delimiter, negatives);
-        line = strtok(NULL, "\n");
-    }
-
-    return sum;
+// Function to extract and set custom delimiter from the input string
+std::string getCustomDelimiter(const std::string& input) {
+    size_t end = input.find('\n');
+    return input.substr(2, end - 2); // Extract the delimiter after "//" and before newline
 }
 
-// Function to validate input
-static int isInputValid(const char* input) {
-    return input && strlen(input) > 0;
+// Function to check for a custom delimiter in the input and set it
+std::string checkCustomDelimiter(const std::string& input, std::string& delimiter) {
+    if (input.substr(0, 2) == "//") {
+        delimiter = getCustomDelimiter(input); // Set custom delimiter
+        return input.substr(input.find('\n') + 1); // Skip the delimiter line in input
+    }
+    delimiter = ",\n"; // Default delimiter is a comma and newline
+    return input;
 }
 
-// Function to replace newlines with the delimiter
-static void replaceNewlinesWithDelimiter(char* str, const char* delimiter) {
-    for (char* p = str; *p; ++p) {
-        if (*p == '\n') {
-            *p = *delimiter;
-        }
+// Main function to add numbers in the input string
+int add(const std::string& input) {
+    std::string delimiter;
+    if (isEmptyString(input)) {
+        return 0; // Return 0 if input string is empty
     }
+    std::string numbers = checkCustomDelimiter(input, delimiter); // Check for custom delimiter
+    return calculateSum(numbers, delimiter); // Calculate and return sum
 }
 
-// Function to check for negatives and handle errors
-static void checkForNegatives(char* negatives) {
-    if (strlen(negatives) > 0) {
-        negatives[strlen(negatives) - 1] = '\0'; // Remove trailing comma
-        fprintf(stderr, "negatives not allowed: %s\n", negatives);
-        exit(EXIT_FAILURE);
-    }
+int main() {
+    std::string input = "//;\n1;2;1000";  // Example input with custom delimiter
+    int result = add(input);
+    std::cout << "The sum is: " << result << std::endl;  // Output: The sum is: 3
+    return 0;
 }
-
-// Main add function to calculate the sum
-static int add(const char* input) {
-    if (!isInputValid(input)) {
-        return 0;
-    }
-
-    char* str = strdup(input);
-    if (!str) return 0; // Handle allocation failure
-
-    char* input_copy = strdup(input);
-    if (!input_copy) {
-        free(str);
-        return 0; // Handle allocation failure
-    }
-
-    char* delimiter = getDelimiter(&input_copy);
-    if (!delimiter) {
-        free(str);
-        free(input_copy);
-        return 0; // Handle allocation failure
-    }
-
-    char negatives[100] = "";
-
-    replaceNewlinesWithDelimiter(str, delimiter);
-    int sum = processInput(str, delimiter, negatives);
-    checkForNegatives(negatives);
-
-    free(delimiter);
-    free(str);
-    free(input_copy);
-
-    return sum;
-}
-
-#endif // STRING_CALCULATOR_H
